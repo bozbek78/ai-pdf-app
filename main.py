@@ -1,21 +1,6 @@
-from fastapi import FastAPI, Request, UploadFile, Form
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-import shutil
-import os
+import gradio as gr
+from gradio_interface import build_interface
 
-app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
-
-@app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
-
-@app.post("/upload_pdf/")
-async def upload_pdf(request: Request, file: UploadFile):
-    file_location = f"uploads/{file.filename}"
-    with open(file_location, "wb+") as file_object:
-        shutil.copyfileobj(file.file, file_object)
-    return templates.TemplateResponse("index.html", {"request": request, "message": f"{file.filename} yüklendi."})
+if __name__ == "__main__":
+    app = build_interface()
+    app.launch(server_name="0.0.0.0", server_port=7860)
