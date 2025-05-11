@@ -1,6 +1,12 @@
 import gradio as gr
+from fastapi import FastAPI
 from gradio_interface import build_interface
 
-if __name__ == "__main__":
-    app = build_interface()
-    app.launch(server_name="0.0.0.0", server_port=7860)
+app = FastAPI()
+
+gr_app = build_interface()
+app = gr.mount_gradio_app(app, gr_app, path="/")
+
+@app.get("/")
+async def status():
+    return {"status": "Gradio app is running"}
