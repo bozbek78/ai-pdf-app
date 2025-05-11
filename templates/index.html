@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI PDF Engine</title>
+</head>
+<body>
+    <h1>PDF Dosyası Yükle</h1>
+    {% if message %}
+        <p style="color: green;">{{ message }}</p>
+    {% endif %}
+    <form action="/upload_pdf/" enctype="multipart/form-data" method="post">
+        <input type="file" name="file">
+        <input type="submit" value="Yükle">
+    </form>
+</body>
+</html>
