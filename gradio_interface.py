@@ -39,7 +39,7 @@ def build_interface():
                     f.write(f"{tag}\n")
                 return "✅ Etiket kaydedildi."
 
-            image_gallery.update(value=list_images())
+            image_gallery.value = list_images()
             save_button.click(fn=save_tag, inputs=[tag_input], outputs=[tag_output])
 
     return demo
