@@ -6,7 +6,7 @@ from openai_smart_query import query_openai_with_astra_context
 from PIL import Image
 
 def build_interface():
-    with gr.Blocks(title="AI PDF Engine") as demo:
+    with gr.Blocks() as demo:
         with gr.Tab("📄 PDF Yükle"):
             gr.Markdown("## 📘 PDF'den Metin ve Görsel Yükleyici")
             file_input = gr.File(label="📄 PDF Yükle", file_types=[".pdf"])
