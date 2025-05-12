@@ -6,7 +6,7 @@ from googleapiclient.http import MediaFileUpload
 
 SCOPES = ['https://www.googleapis.com/auth/drive']
 CREDENTIALS_FILE = 'credentials.json'
-TOKEN_FILE = 'token.json'
+TOKEN_FILE = '/etc/secrets/token.json'
 
 def get_drive_service():
     creds = None
