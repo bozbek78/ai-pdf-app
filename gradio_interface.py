@@ -24,7 +24,7 @@ def build_interface():
             ask_btn.click(fn=ask_with_sources, inputs=question, outputs=[answer, sources])
 
         with gr.Tab("🖼️ Görseller ve Etiketleme"):
-            image_gallery = gr.Image(label="PDF'ten çıkarılan görseller", tool="editor", type="filepath")
+            image_gallery = gr.Image(label="PDF'ten çıkarılan görseller", type="filepath")
             label_input = gr.Textbox(label="Etiket (ne görünüyor?)")
             save_label = gr.Button("Etiketi Kaydet")
             label_result = gr.Textbox(label="Kayıt Sonucu")
