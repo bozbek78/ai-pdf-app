@@ -4,17 +4,21 @@ import openai
 import requests
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
-ASTRA_DB_API_ENDPOINT = os.getenv("ASTRA_DB_API_ENDPOINT")
-ASTRA_DB_APPLICATION_TOKEN = os.getenv("ASTRA_DB_APPLICATION_TOKEN")
-ASTRA_DB_COLLECTION = "pdf_data"
-ASTRA_DB_NAMESPACE = "default_keyspace"
+
+# --- ASTRA yapılandırması -------------------------------------------------
+ASTRA_DB_API_ENDPOINT      = os.getenv("ASTRA_DB_API_ENDPOINT")               # https://xxxx.apps.astra.datastax.com
+ASTRA_DB_APPLICATION_TOKEN = os.getenv("ASTRA_DB_APPLICATION_TOKEN")          # AstraCS:...
+ASTRA_DB_COLLECTION        = os.getenv("ASTRA_DB_COLLECTION",  "pdf_data")    # <── 3. madde: ENV’den okunuyor
+ASTRA_DB_NAMESPACE         = os.getenv("ASTRA_DB_KEYSPACE",   "default_keyspace")  # <── 3. madde: ENV’den
+# --------------------------------------------------------------------------
 
 HEADERS = {
     "x-cassandra-token": ASTRA_DB_APPLICATION_TOKEN,
     "Content-Type": "application/json"
 }
 
-def get_query_embedding(text):
+def get_query_embedding(text: str):
+    """Metni OpenAI ile embed'e çevir; hata olursa rastgele vektör döner."""
     try:
         response = openai.Embedding.create(
             input=text,
@@ -36,7 +40,8 @@ def fetch_all_documents():
         return response.json().get("data", [])
     return []
 
-def query_openai_with_astra_context(query_text):
+def query_openai_with_astra_context(query_text: str):
+    """Astra'daki en yakın 3 dokümanı bul ve OpenAI ile yanıt oluştur."""
     query_vector = get_query_embedding(query_text)
     documents = fetch_all_documents()
 
@@ -58,7 +63,10 @@ def query_openai_with_astra_context(query_text):
         content = d.get("content", "")[:400]
         context += f"- Sayfa {page}: {content}\n"
 
-    prompt = f"Kullanıcı şu soruyu sordu: '{query_text}'\nAşağıdaki içeriklere göre yanıtla:\n{context}\n\nCevap:"
+    prompt = (
+        f"Kullanıcı şu soruyu sordu: '{query_text}'\n"
+        f"Aşağıdaki içeriklere göre yanıtla:\n{context}\n\nCevap:"
+    )
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",

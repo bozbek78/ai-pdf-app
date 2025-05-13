@@ -7,16 +7,20 @@ from google_drive_utils import upload_image_to_drive
 import numpy as np
 import requests
 
-ASTRA_DB_API_ENDPOINT = os.getenv("ASTRA_DB_API_ENDPOINT")
-ASTRA_DB_APPLICATION_TOKEN = os.getenv("ASTRA_DB_APPLICATION_TOKEN")
-ASTRA_DB_COLLECTION = "pdf_data"
-ASTRA_DB_NAMESPACE = "default_keyspace"
+# --- ASTRA yapılandırması ----------------------------------------------
+ASTRA_DB_API_ENDPOINT       = os.getenv("ASTRA_DB_API_ENDPOINT")            # örn. https://xxxx.apps.astra.datastax.com
+ASTRA_DB_APPLICATION_TOKEN  = os.getenv("ASTRA_DB_APPLICATION_TOKEN")       # AstraCS:...
+ASTRA_DB_COLLECTION         = os.getenv("ASTRA_DB_COLLECTION",  "pdf_data") # <── 3. madde: artık ENV'den okunuyor
+ASTRA_DB_NAMESPACE          = os.getenv("ASTRA_DB_KEYSPACE",   "default_keyspace")  # <── 3. madde: keyspace de ENV'den
+
 IMAGE_OUTPUT_DIR = "pdf_images"
 
 HEADERS = {
     "x-cassandra-token": ASTRA_DB_APPLICATION_TOKEN,
     "Content-Type": "application/json"
 }
+
+# ------------------------------------------------------------------------
 
 def sha256_file(path):
     with open(path, "rb") as f:
@@ -93,7 +97,11 @@ def process_pdf_to_astra(files):
 
 def list_images():
     os.makedirs(IMAGE_OUTPUT_DIR, exist_ok=True)
-    return [os.path.join(IMAGE_OUTPUT_DIR, f) for f in os.listdir(IMAGE_OUTPUT_DIR) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+    return [
+        os.path.join(IMAGE_OUTPUT_DIR, f)
+        for f in os.listdir(IMAGE_OUTPUT_DIR)
+        if f.lower().endswith((".png", ".jpg", ".jpeg"))
+    ]
 
 def update_image_label(filepath, label):
     filename = os.path.basename(filepath)
