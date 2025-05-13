@@ -1,3 +1,6 @@
+import logging
+logging.basicConfig(level=logging.INFO)
+
 import gradio as gr
 from fastapi import FastAPI
 from gradio_interface import build_interface
