@@ -25,9 +25,13 @@ def sha256_file(path: str) -> str:
 
 
 def upsert_vector(doc_id: str, metadata: dict, vector: list[float]):
-    """Vektör + meta bilgiyi koleksiyona ekler (varsa günceller)."""
+    """Vektör + meta bilgiyi Astra VectorDB v1’e ekler (varsa günceller)."""
     url  = f"{ASTRA_DB_API_ENDPOINT}/api/vectordb/v1/{ASTRA_DB_NAMESPACE}/{ASTRA_DB_COLLECTION}/vectors"
-    body = {"vectors": [{**metadata, "_id": doc_id, "$vector": vector}]}
+    body = {"vectors": [{
+        "id":      doc_id,      # eski _id değil
+        "values":  vector,      # eski $vector değil
+        "metadata": metadata
+    }]}
     requests.post(url, headers=HEADERS, json=body, timeout=10).raise_for_status()
 
 
@@ -111,6 +115,9 @@ def update_image_label(filepath, label):
     filename = os.path.basename(filepath)
     doc_id   = filename.replace(".", "_")
     url  = f"{ASTRA_DB_API_ENDPOINT}/api/vectordb/v1/{ASTRA_DB_NAMESPACE}/{ASTRA_DB_COLLECTION}/vectors"
-    body = {"vectors": [{"_id": doc_id, "label": label}]}
+    body = {"vectors": [{
+        "id":       doc_id,
+        "metadata": {"label": label}
+    }]}
     r = requests.put(url, headers=HEADERS, json=body, timeout=10)
     return "✅ Etiket güncellendi" if r.ok else "❌ Etiket güncellenemedi"
