@@ -1,4 +1,4 @@
-gradio
+gradio==3.50.2
 fastapi
 uvicorn
 openai
@@ -6,6 +6,8 @@ PyMuPDF
 Pillow
 numpy
 requests
+python-dotenv
+python-multipart
 google-api-python-client
 google-auth
 google-auth-oauthlib
