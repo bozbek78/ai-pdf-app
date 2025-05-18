@@ -1,9 +1,13 @@
+
 import os, io, hashlib, numpy as np, requests, fitz
+from dotenv import load_dotenv
+load_dotenv()
+print("✅ ASTRA endpoint:", os.getenv("ASTRA_DB_API_ENDPOINT"))
+
 from PIL import Image
 from google_drive_utils import upload_image_to_drive
 from openai_utils import get_query_embedding
 
-# ── Astra ayarları ───────────────────────────────────────────
 ASTRA_DB_API_ENDPOINT      = os.getenv("ASTRA_DB_API_ENDPOINT")
 ASTRA_DB_APPLICATION_TOKEN = os.getenv("ASTRA_DB_APPLICATION_TOKEN")
 ASTRA_DB_COLLECTION        = os.getenv("ASTRA_DB_COLLECTION",  "pdf_data")
