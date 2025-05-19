@@ -105,3 +105,10 @@ def query_openai_with_astra_context(question: str, context_texts: list[str]) -> 
     except Exception as e:
         print(f"Hata (query_openai_with_astra_context): {e}")
         return "Üzgünüm, yanıt üretilemedi."
+
+
+def auto_label_image(image_base64: str, prompt_text: str = "") -> list[str]:
+    """
+    get_image_tags fonksiyonunu sarmalayan alternatif isimli fonksiyon (gradio ile uyumlu).
+    """
+    return get_image_tags(image_base64, prompt_text)
