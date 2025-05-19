@@ -12,3 +12,11 @@ services:
         sync: false
       - key: ASTRA_DB_APPLICATION_TOKEN
         sync: false
+      - key: ASTRA_DB_COLLECTION
+        sync: false
+      - key: ASTRA_DB_KEYSPACE
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
