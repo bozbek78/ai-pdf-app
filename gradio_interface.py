@@ -1,6 +1,11 @@
 import gradio as gr
-from openai_utils import query_openai_with_astra_context
-from process_pdf import process_pdf_to_astra, list_images, update_image_label
+from openai_utils import (
+    query_openai_with_astra_context,
+    auto_label_image,
+    update_image_label,
+)
+from process_pdf import process_pdf_to_astra, list_images
+
 
 def build_interface():
     with gr.Blocks(title="Akıllı PDF Yorumlayıcı") as demo:
@@ -24,18 +29,19 @@ def build_interface():
             ask_btn.click(fn=ask_with_sources, inputs=question, outputs=[answer, sources])
 
         with gr.Tab("🖼️ Görseller ve Etiketleme"):
-            image_gallery = gr.Image(label="PDF'ten çıkarılan görseller", type="filepath")
-            label_input = gr.Textbox(label="Etiket (ne görünüyor?)")
-            save_label = gr.Button("Etiketi Kaydet")
-            label_result = gr.Textbox(label="Kayıt Sonucu")
-
             image_list = list_images()
             image_dropdown = gr.Dropdown(choices=image_list, label="Bir görsel seçin")
+            image_gallery = gr.Image(label="Seçilen Görsel", type="filepath")
+            label_input = gr.Textbox(label="Etiket (ne görünüyor?)")
+            auto_label_btn = gr.Button("Otomatik Etiketle")
+            save_label_btn = gr.Button("Etiketi Kaydet")
+            label_result = gr.Textbox(label="Durum")
 
             def on_select_image(file_path):
                 return file_path, ""
 
             image_dropdown.change(fn=on_select_image, inputs=image_dropdown, outputs=[image_gallery, label_input])
-            save_label.click(fn=update_image_label, inputs=[image_dropdown, label_input], outputs=label_result)
+            auto_label_btn.click(fn=auto_label_image, inputs=image_dropdown, outputs=label_input)
+            save_label_btn.click(fn=update_image_label, inputs=[image_dropdown, label_input], outputs=label_result)
 
     return demo

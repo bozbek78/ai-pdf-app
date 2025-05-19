@@ -31,13 +31,12 @@ def get_image_tags(image_base64: str, prompt_text: str = "") -> list[str]:
                     "role": "user",
                     "content": [
                         {"type": "text", "text": prompt_text or "Bu görseli etiketle:"},
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}    
                     ]
                 }
             ],
             max_tokens=300
         )
-
         tags_raw = response.choices[0].message.content.strip()
         tags = [tag.strip("- ").strip() for tag in tags_raw.split("\n") if tag]
         return tags
