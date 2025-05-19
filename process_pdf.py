@@ -1,17 +1,28 @@
-
-import os, io, hashlib, numpy as np, requests, fitz
+import os
+import io
+import hashlib
+import numpy as np
+import requests
+import fitz
 from dotenv import load_dotenv
+
 load_dotenv()
-print("✅ ASTRA endpoint:", os.getenv("ASTRA_DB_API_ENDPOINT"))
 
 from PIL import Image
 from google_drive_utils import upload_image_to_drive
 from openai_utils import get_query_embedding
 
-ASTRA_DB_API_ENDPOINT      = os.getenv("ASTRA_DB_API_ENDPOINT")
-ASTRA_DB_APPLICATION_TOKEN = os.getenv("ASTRA_DB_APPLICATION_TOKEN")
-ASTRA_DB_COLLECTION        = os.getenv("ASTRA_DB_COLLECTION",  "pdf_data")
-ASTRA_DB_NAMESPACE         = os.getenv("ASTRA_DB_KEYSPACE",   "default_keyspace")
+# Çevre değişkenlerini zorunlu kıl
+def get_env_or_raise(key):
+    value = os.getenv(key)
+    if value is None or value == "":
+        raise ValueError(f"{key} environment variable is not set!")
+    return value
+
+ASTRA_DB_API_ENDPOINT      = get_env_or_raise("ASTRA_DB_API_ENDPOINT")
+ASTRA_DB_APPLICATION_TOKEN = get_env_or_raise("ASTRA_DB_APPLICATION_TOKEN")
+ASTRA_DB_COLLECTION        = get_env_or_raise("ASTRA_DB_COLLECTION")
+ASTRA_DB_NAMESPACE         = get_env_or_raise("ASTRA_DB_KEYSPACE")
 
 IMAGE_OUTPUT_DIR = "pdf_images"
 HEADERS = {
@@ -23,7 +34,7 @@ def sha256_file(path: str) -> str:
     with open(path, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest()
 
-def upsert_vector(doc_id: str, metadata: dict, vector: list[float]):
+def upsert_vector(doc_id: str, metadata: dict, vector: list):
     url = f"{ASTRA_DB_API_ENDPOINT}/api/vectordb/v1/{ASTRA_DB_NAMESPACE}/{ASTRA_DB_COLLECTION}/vectors"
     body = {"vectors": [{
         "id": doc_id,
@@ -37,6 +48,7 @@ def upsert_vector(doc_id: str, metadata: dict, vector: list[float]):
         print("❌ upsert_vector hatası:", e)
         print("📤 Gönderilen URL:", url)
         print("📦 Gönderilen veri:", body)
+        print("🌐 Sunucu yanıtı:", getattr(e, 'response', None) and e.response.text)
         raise
 
 def process_pdf_to_astra(files):
@@ -55,6 +67,9 @@ def process_pdf_to_astra(files):
         for page_no, page in enumerate(doc, start=1):
             text = page.get_text().strip()
             if text:
+                # Astra collection'ın dimension'u ile aynı embedding uzunluğu kullan!
+                embedding = get_query_embedding(text[:8192])
+                assert len(embedding) == 1536, "Vektör uzunluğu Astra ile uyumsuz!"
                 upsert_vector(
                     f"{file_hash}_p{page_no}_text",
                     {
@@ -63,7 +78,7 @@ def process_pdf_to_astra(files):
                         "file": base_name,
                         "content": text[:1_000]
                     },
-                    get_query_embedding(text[:8_192])
+                    embedding
                 )
 
             for img_idx, img in enumerate(page.get_images(full=True), start=1):
@@ -79,6 +94,7 @@ def process_pdf_to_astra(files):
 
                 upload_image_to_drive(filepath, base_name)
 
+                # Örnek vektör (gerekirse 1536 boyutunda dummy kullan)
                 upsert_vector(
                     f"{file_hash}_p{page_no}_img{img_idx}",
                     {
@@ -87,13 +103,13 @@ def process_pdf_to_astra(files):
                         "file": filename,
                         "content": "image extracted"
                     },
-                    np.random.rand(1_024).tolist()
+                    np.random.rand(1536).tolist()
                 )
 
         upsert_vector(
             file_hash,
             {"type": "file", "name": base_name},
-            np.zeros(1_024).tolist()
+            np.zeros(1536).tolist()
         )
 
         results.append(f"✅ {base_name} işlendi ve yüklendi.")
