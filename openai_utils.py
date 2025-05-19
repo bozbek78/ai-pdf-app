@@ -1,106 +1,74 @@
 import base64
-import json
 import requests
 import openai
 import os
+from dotenv import load_dotenv
 
-from PIL import Image
-from io import BytesIO
+load_dotenv()
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
-ASTRA_DB_API_ENDPOINT = os.getenv("ASTRA_DB_API_ENDPOINT")
-ASTRA_DB_COLLECTION = os.getenv("ASTRA_DB_COLLECTION")
-ASTRA_DB_KEYSPACE = os.getenv("ASTRA_DB_KEYSPACE")
-ASTRA_DB_APPLICATION_TOKEN = os.getenv("ASTRA_DB_APPLICATION_TOKEN")
 
 
-def get_image_tags(image_base64: str, prompt_text: str = "") -> list[str]:
+def encode_image_to_base64(file_path):
+    with open(file_path, "rb") as image_file:
+        encoded = base64.b64encode(image_file.read()).decode("utf-8")
+    return encoded
+
+
+def get_image_tags(image_base64: str, prompt_text: str) -> list[str]:
     try:
         response = openai.ChatCompletion.create(
             model="gpt-4-vision-preview",
             messages=[
                 {
-                    "role": "system",
-                    "content": "Sen bir görsel etiketleme asistanısın. Görseldeki objeleri ve içerikleri etiket listesi halinde ver."
-                },
-                {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": prompt_text or "Bu görseli etiketle:"},
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}
-                    ]
+                        {"type": "text", "text": prompt_text},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_base64}",
+                                "detail": "high",
+                            },
+                        },
+                    ],
                 }
             ],
-            max_tokens=300
+            max_tokens=300,
         )
         tags_raw = response.choices[0].message.content.strip()
-        tags = [tag.strip("- ").strip() for tag in tags_raw.split("\n") if tag]
-        return tags
+        return tags_raw.split("\n") if tags_raw else []
     except Exception as e:
         print(f"Hata (get_image_tags): {e}")
         return []
 
 
-def store_image_with_tags_to_astra(image_base64: str, tags: list[str], doc_id: str):
-    url = f"{ASTRA_DB_API_ENDPOINT}/api/rest/v2/namespaces/{ASTRA_DB_KEYSPACE}/collections/{ASTRA_DB_COLLECTION}"
-    headers = {
-        "X-Cassandra-Token": ASTRA_DB_APPLICATION_TOKEN,
-        "Content-Type": "application/json"
-    }
-    data = {
-        "_id": doc_id,
-        "type": "image",
-        "base64": image_base64,
-        "tags": tags
-    }
-    response = requests.put(f"{url}/{doc_id}", headers=headers, data=json.dumps(data))
-    if response.status_code not in (200, 201):
-        print(f"AstraDB kayıt hatası: {response.status_code} - {response.text}")
-        raise Exception("AstraDB görsel kaydetme hatası")
-    return True
-
-
-def encode_image_to_base64(image_path: str) -> str:
-    with open(image_path, "rb") as img_file:
-        return base64.b64encode(img_file.read()).decode("utf-8")
-
-
-def decode_base64_to_image(base64_str: str) -> Image.Image:
-    image_data = base64.b64decode(base64_str)
-    return Image.open(BytesIO(image_data))
-
-
-def query_openai_with_astra_context(question: str, context_texts: list[str]) -> str:
-    try:
-        context = "\n\n".join(context_texts)
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "Sen bir belge analizi uzmanısın. Aşağıdaki bağlam metnine göre soruları yanıtla."},
-                {"role": "user", "content": f"Bağlam:\n{context}\n\nSoru:\n{question}"}
-            ],
-            temperature=0.3,
-            max_tokens=500
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        print(f"Hata (query_openai_with_astra_context): {e}")
-        return "Üzgünüm, yanıt üretilemedi."
-
-
-def auto_label_image(image_base64: str, prompt_text: str = "") -> list[str]:
+def auto_label_image(image_path: str) -> list[str]:
+    image_base64 = encode_image_to_base64(image_path)
+    prompt_text = "Lütfen bu görseli analiz et ve görseldeki önemli nesne, ortam veya detayları başlıklar halinde sırala."
     return get_image_tags(image_base64, prompt_text)
 
 
-def update_image_label(doc_id: str, new_tags: list[str]) -> bool:
-    url = f"{ASTRA_DB_API_ENDPOINT}/api/rest/v2/namespaces/{ASTRA_DB_KEYSPACE}/collections/{ASTRA_DB_COLLECTION}/{doc_id}"
-    headers = {
-        "X-Cassandra-Token": ASTRA_DB_APPLICATION_TOKEN,
-        "Content-Type": "application/json"
-    }
-    update_payload = {"$set": {"tags": new_tags}}
-    response = requests.patch(url, headers=headers, data=json.dumps(update_payload))
-    if response.status_code not in (200, 204):
-        print(f"Hata (update_image_label): {response.status_code} - {response.text}")
-        return False
-    return True
+def update_image_label(current_labels: list[str], new_labels: list[str]) -> list[str]:
+    # Önce tüm etiketleri birleştir
+    combined = current_labels + new_labels
+    # Küçük harf ve boşluklardan arındırarak benzersizleştir
+    cleaned = list(set(label.strip().lower() for label in combined if label.strip()))
+    return sorted(cleaned)
+
+
+def get_embedding_from_openai(text: str, model: str = "text-embedding-ada-002") -> list[float]:
+    try:
+        response = openai.Embedding.create(
+            input=[text],
+            model=model
+        )
+        return response["data"][0]["embedding"]
+    except Exception as e:
+        print(f"Hata (get_embedding_from_openai): {e}")
+        return []
+
+
+def generate_image_labels(image_base64: str) -> list[str]:
+    prompt_text = "Görselde gördüğün nesneleri madde madde yaz."
+    return get_image_tags(image_base64, prompt_text)
