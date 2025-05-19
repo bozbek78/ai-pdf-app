@@ -112,3 +112,21 @@ def auto_label_image(image_base64: str, prompt_text: str = "") -> list[str]:
     get_image_tags fonksiyonunu sarmalayan alternatif isimli fonksiyon (gradio ile uyumlu).
     """
     return get_image_tags(image_base64, prompt_text)
+    
+    def update_image_label(doc_id: str, new_tags: list[str]) -> bool:
+    """
+    Belirtilen doc_id'li görsel için etiketleri günceller.
+    """
+    url = f"{ASTRA_DB_API_ENDPOINT}/api/rest/v2/namespaces/{ASTRA_DB_KEYSPACE}/collections/{ASTRA_DB_COLLECTION}/{doc_id}"
+    headers = {
+        "X-Cassandra-Token": ASTRA_DB_APPLICATION_TOKEN,
+        "Content-Type": "application/json"
+    }
+    update_payload = {"$set": {"tags": new_tags}}
+
+    response = requests.patch(url, headers=headers, data=json.dumps(update_payload))
+    if response.status_code not in (200, 204):
+        print(f"Hata (update_image_label): {response.status_code} - {response.text}")
+        return False
+    return True
+
