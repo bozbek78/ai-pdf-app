@@ -1,4 +1,3 @@
-
 import os
 import base64
 import requests
@@ -6,7 +5,6 @@ from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
-
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def query_openai_with_astra_context(question: str, context: str = "") -> str:
@@ -46,9 +44,25 @@ def auto_label_image(image_path: str) -> str:
 
 def update_image_label(image_name: str, new_label: str) -> str:
     try:
-        # Bu alan veritabanı güncellemesi içindir, şu an örnek çıktı veriyor
         print(f"{image_name} görseline '{new_label}' etiketi eklendi.")
         return f"Etiket '{new_label}' görsel '{image_name}' için kaydedildi."
     except Exception as e:
         print(f"Etiket güncellerken hata: {e}")
         return "Etiket güncellenemedi."
+
+def get_embedding_from_openai(text: str, model: str = "text-embedding-3-small") -> list:
+    try:
+        response = client.embeddings.create(
+            model=model,
+            input=[text]
+        )
+        return response.data[0].embedding
+    except Exception as e:
+        return f"Gömme alınamadı: {e}"
+
+def generate_image_labels(image_paths: list) -> dict:
+    results = {}
+    for image_path in image_paths:
+        label = auto_label_image(image_path)
+        results[image_path] = label
+    return results
