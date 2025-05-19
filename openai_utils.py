@@ -24,6 +24,9 @@ def get_query_embedding(text: str) -> list[float]:
         print("⚠️ OpenAI embedding hatası:", e)
         return np.random.rand(1536).tolist()
 
+# Eski adı desteklesin:
+get_embedding_from_openai = get_query_embedding
+
 # ───────────────── Opsiyonel: Astra Vektör Arama ─────────────────
 ASTRA_DB_API_ENDPOINT      = os.getenv("ASTRA_DB_API_ENDPOINT")
 ASTRA_DB_APPLICATION_TOKEN = os.getenv("ASTRA_DB_APPLICATION_TOKEN")
