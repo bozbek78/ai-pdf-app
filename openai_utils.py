@@ -1,92 +1,59 @@
-# openai_utils.py
-import os
-import json
-import numpy as np
-import requests
 import openai
+import base64
+import requests
+from PIL import Image
+from io import BytesIO
+import os
 
-# ───────────────── OpenAI Ayarları ────────────────────────────────
+# OpenAI API anahtarını environment üzerinden al
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# ───────────────── Embedding Fonksiyonu ───────────────────────────
-def get_query_embedding(text: str) -> list[float]:
-    """
-    OpenAI 'text-embedding-ada-002' modeli ile 1536 boyutlu embedding üretir.
-    Hata durumunda 1536 boyutunda rastgele vektör döner.
-    """
-    try:
-        response = openai.Embedding.create(
-            input=text,
-            model="text-embedding-ada-002"
-        )
-        return response["data"][0]["embedding"]
-    except Exception as e:
-        print("⚠️ OpenAI embedding hatası:", e)
-        return np.random.rand(1536).tolist()
+def encode_image(image_path):
+    """Görseli base64 formatında şifrele"""
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode("utf-8")
 
-# Eski adı desteklesin:
-get_embedding_from_openai = get_query_embedding
+def tag_image_with_gpt4vision(image_path):
+    """GPT-4 Vision ile görselden etiket üret"""
+    base64_image = encode_image(image_path)
 
-# ───────────────── Opsiyonel: Astra Vektör Arama ─────────────────
-ASTRA_DB_API_ENDPOINT      = os.getenv("ASTRA_DB_API_ENDPOINT")
-ASTRA_DB_APPLICATION_TOKEN = os.getenv("ASTRA_DB_APPLICATION_TOKEN")
-ASTRA_DB_COLLECTION        = os.getenv("ASTRA_DB_COLLECTION", "pdf_data")
-ASTRA_DB_NAMESPACE         = os.getenv("ASTRA_DB_KEYSPACE", "default_keyspace")
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {openai.api_key}"
+    }
 
-HEADERS = {
-    "x-cassandra-token": ASTRA_DB_APPLICATION_TOKEN,
-    "Content-Type": "application/json"
-}
+    payload = {
+        "model": "gpt-4-vision-preview",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "Bu görselin içeriğine göre 3-5 arası etiket üret. Kısa ve genel terimler kullan."
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{base64_image}"
+                        }
+                    }
+                ]
+            }
+        ],
+        "max_tokens": 100
+    }
 
-def _astra_post(url: str, payload: dict, timeout: int = 20):
-    r = requests.post(url, headers=HEADERS, json=payload, timeout=timeout)
-    r.raise_for_status()
-    return r.json()
+    response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
 
-def nearest_documents(vector: list[float], top_k: int = 3) -> list[dict]:
-    """
-    Verilen vektöre en yakın top_k dokümanı Astra Vectordb’den getirir.
-    """
-    url = f"{ASTRA_DB_API_ENDPOINT}/api/vectordb/v1/{ASTRA_DB_NAMESPACE}/{ASTRA_DB_COLLECTION}/query"
-    try:
-        data = _astra_post(url, {"vector": vector, "topK": top_k})
-        return [hit["document"] for hit in data.get("results", [])]
-    except Exception as e:
-        print("⚠️ Vectordb query hatası:", e)
-        return []
+    if response.status_code != 200:
+        raise Exception(f"OpenAI API hatası: {response.status_code} - {response.text}")
 
-def query_openai_with_astra_context(question: str) -> tuple[str, str]:
-    """
-    • Soru için embedding vektörü alır.
-    • Astra’dan en ilgili 3 dokümanı çeker.
-    • OpenAI ile yanıtlar.
-    """
-    vector = get_query_embedding(question)
-    docs   = nearest_documents(vector, top_k=3)
+    result = response.json()
+    message = result['choices'][0]['message']['content']
+    tags = [t.strip() for t in message.split(',')]
+    return tags
 
-    if not docs:
-        return "❌ Eşleşen içerik bulunamadı.", ""
-
-    context_lines = [
-        f"- Sayfa {d.get('page','?')}: {d.get('content','')[:400]}"
-        for d in docs
-    ]
-    context = "\n".join(context_lines)
-
-    prompt = (
-        f"Kullanıcı şu soruyu sordu: “{question}”\n"
-        f"Aşağıdaki içeriklere göre yanıtla:\n{context}\n\nCevap:"
-    )
-
-    try:
-        res = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3
-        )
-        answer = res["choices"][0]["message"]["content"]
-        return answer.strip(), context
-    except Exception as e:
-        err = f"❌ GPT yanıt hatası: {e}"
-        print(err)
-        return err, context
+# Örnek kullanım
+# tags = tag_image_with_gpt4vision("ornek.png")
+# print("Etiketler:", tags)
