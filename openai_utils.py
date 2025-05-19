@@ -84,3 +84,24 @@ def decode_base64_to_image(base64_str: str) -> Image.Image:
     """
     image_data = base64.b64decode(base64_str)
     return Image.open(BytesIO(image_data))
+
+
+def query_openai_with_astra_context(question: str, context_texts: list[str]) -> str:
+    """
+    OpenAI ChatCompletion API kullanarak, AstraDB'den alınan bağlamla soruyu yanıtlar.
+    """
+    try:
+        context = "\n\n".join(context_texts)
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "Sen bir belge analizi uzmanısın. Aşağıdaki bağlam metnine göre soruları yanıtla."},
+                {"role": "user", "content": f"Bağlam:\n{context}\n\nSoru:\n{question}"}
+            ],
+            temperature=0.3,
+            max_tokens=500
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"Hata (query_openai_with_astra_context): {e}")
+        return "Üzgünüm, yanıt üretilemedi."
